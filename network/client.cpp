@@ -1,25 +1,12 @@
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/errno.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/unistd.h>
-
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <thread>
-#include <vector>
-using namespace std;
-#define BUFFSIZE 16
+// client
+#include "header.hpp"
+#define TEXTLEN 4
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 16555
 
-// client.cpp
 void req(int seq) {
   struct sockaddr_in servaddr;
-  char buff[BUFFSIZE];
+  char buff[TEXTLEN];
   bzero(buff, sizeof(buff));
   int sockfd;
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -30,27 +17,23 @@ void req(int seq) {
   servaddr.sin_port = htons(SERVER_PORT);
   connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
-  int lenslice = rand() % BUFFSIZE;
-  // lenslice = 1;
+  int lenslice = rand() % TEXTLEN;
+  lenslice = TEXTLEN;
   char* slice = (char*)malloc(lenslice);
   memset(slice, 'a' + seq, lenslice);
-  int off = 0;
-  while (off < BUFFSIZE) {
-    lenslice = off + lenslice > BUFFSIZE ? BUFFSIZE - off : lenslice;
-    strncpy(buff, slice, lenslice);
-    int n = send(sockfd, buff, lenslice, 0);
-    off += n;
-    usleep(10000);
-  }
-  send(sockfd, "\n", 1, 0);
+  slice[lenslice - 1] = '\n';
+
+  mysend(sockfd, slice);
+  printf("%s", slice);
 
   close(sockfd);
 }
 int main() {
   const int nthread = 26;
   vector<thread> threads;
+  int seed = rand();
   for (int i = 0; i < nthread; ++i) {
-    threads.emplace_back([=]() { req(i); });
+    threads.emplace_back([=]() { req((seed + i) % nthread); });
   }
   for (int i = 0; i < nthread; ++i) {
     threads[i].join();
