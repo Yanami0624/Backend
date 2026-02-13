@@ -6,6 +6,7 @@
 
 int sockfd;
 struct sockaddr_in addr;
+extern int ConnPool::epfd;
 
 int main() {
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -24,6 +25,7 @@ int main() {
   ev.data.fd = sockfd;
   epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &ev);
 
+  ConnPool pool(epfd);
   while (true) {
     epoll_event events[1024];
     int n = epoll_wait(epfd, events, 1024, 10);
@@ -33,21 +35,16 @@ int main() {
       if ((events[i].events & EPOLLIN)) {
         if (fd == sockfd) {
           int connfd = accept(sockfd, NULL, NULL);
-          // fcntl(connfd, F_SETFL, O_NONBLOCK);
+          fcntl(connfd, F_SETFL, O_NONBLOCK);
           epoll_event ev;
           ev.events = EPOLLIN;
           ev.data.fd = connfd;
           epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &ev);
-        } else {
-          char buffer[BUFF];
-          bzero(buffer, BUFF);
-          myrecv(fd, buffer);
-          printf("%s", buffer);
-        }
-      }
 
-      if ((events[i].events & EPOLLHUP)) {
-        // close(fd);
+          pool.addmember(connfd);
+        } else {
+          pool.write(fd);
+        }
       }
     }
   }

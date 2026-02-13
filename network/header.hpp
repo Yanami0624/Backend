@@ -1,4 +1,3 @@
-// header.hpp
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -12,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <map>
 #include <string>
@@ -20,42 +20,45 @@
 #include <vector>
 using namespace std;
 
-const long MAGIC = 0x11451419;
-class packet {
+static const int BUFF = 1024;
+
+// header.hpp
+class conninfo {
  public:
-  packet(char* buffer) { len = strlen(buffer); }
-  packet(int l) : len(l) {};
-  bool valid() { return header == MAGIC; }
-  int getlen() { return len; }
-  const int headersize = sizeof(packet);
+  conninfo(int f) : fd(f) {}
+  conninfo() = default;
+  void adddata(char* buffer) { data += buffer; }
+  void print() { printf("%d data: %s\n", fd, data.c_str()); }
 
  private:
-  long header = MAGIC;
-  long len = 0;
+  int fd;
+  string data;
+  int offset = 0;
 };
 
-static const int BUFF = 2048;
-int myrecv(int fd, char* buffer) {
-  packet* p = (packet*)malloc(sizeof(packet));
-  recv(fd, (char*)p, sizeof(packet), 0);
-  if (!p->valid()) return -1;
-  int off = 0;
-  int len = p->getlen();
-  while (off < len) {
-    int n = recv(fd, buffer + off, len - off, 0);
-    off += n;
+class ConnPool {
+ public:
+  ConnPool(int e) { epfd = e; };
+  void addmember(int fd) { pool[fd] = move(conninfo(fd)); }
+  void write(int fd) {
+    bzero(buffer, BUFF);
+    int n = recv(fd, buffer, BUFF, 0);
+    auto conn = &pool[fd];
+    if (n == 0) {
+      close(fd);
+      epoll_ctl(epfd, EPOLL_CTL_DEL, fd, nullptr);
+      pool.erase(fd);
+      return;
+    }
+    if (n < 0 && errno == EAGAIN) {
+      return;
+    }
+    conn->print();
+    conn->adddata(buffer);
   }
-  return 0;
-}
 
-int mysend(int fd, char* buffer) {
-  packet p(strlen(buffer));
-  send(fd, (char*)&p, sizeof(packet), 0);
-  int off = 0;
-  int len = p.getlen();
-  while (off < len) {
-    int n = send(fd, buffer + off, len - off, 0);
-    off += n;
-  }
-  return 0;
-}
+ private:
+  static int epfd;
+  map<int, conninfo> pool;
+  char buffer[BUFF];
+};

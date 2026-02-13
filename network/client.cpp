@@ -1,6 +1,6 @@
 // client
 #include "header.hpp"
-#define TEXTLEN 4
+#define TEXTLEN 16
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 16555
 
@@ -17,20 +17,23 @@ void req(int seq) {
   servaddr.sin_port = htons(SERVER_PORT);
   connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
-  int lenslice = rand() % TEXTLEN;
-  lenslice = TEXTLEN;
+  int lenslice = rand() % (TEXTLEN - 2) + 2;
   char* slice = (char*)malloc(lenslice);
   memset(slice, 'a' + seq, lenslice);
-  slice[lenslice - 1] = '\n';
 
-  mysend(sockfd, slice);
-  printf("%s", slice);
-
+  int off = 0;
+  while (off < TEXTLEN) {
+    int step = min(lenslice, TEXTLEN - lenslice);
+    send(sockfd, slice, step, 0);
+    off += lenslice;
+    sleep(2);
+  }
   close(sockfd);
 }
 int main() {
-  const int nthread = 26;
+  const int nthread = 2;
   vector<thread> threads;
+  srand(time(0));
   int seed = rand();
   for (int i = 0; i < nthread; ++i) {
     threads.emplace_back([=]() { req((seed + i) % nthread); });
