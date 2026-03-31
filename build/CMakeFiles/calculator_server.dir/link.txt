@@ -1,1 +1,0 @@
-/usr/bin/c++      -Wall     -Wextra     -pthread CMakeFiles/calculator_server.dir/example/calculator_server.cpp.o -o calculator_server  librpc.a 

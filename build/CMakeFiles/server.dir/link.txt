@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/server.dir/example/calculator_server.cpp.o CMakeFiles/server.dir/net/tcp_server.cpp.o CMakeFiles/server.dir/net/tcp_connection.cpp.o -o server 
