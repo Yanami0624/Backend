@@ -1,38 +1,24 @@
-
-#include <unordered_map>
-#include <functional>
+#include "rpc_server.h"
+#include "../common/protocol.h"
 #include <iostream>
 
-#include "../threadpool/thread_pool.cpp"
-#include "../common/protocol.h"
-#include "../common/buffer.h"
+RpcServer::RpcServer(int port, int threads): server(port, threads) {}
 
-class RpcServer {
-public:
+void RpcServer::registerMethod(const std::string& method, RpcHandler handler) {
+    handlers[method] = handler;
+}
 
-    using Handler =
-        std::function<std::string(const std::string&)>;
-
-    void registerService(
-        const std::string& name,
-        Handler handler)
-    {
-        services[name] = handler;
+std::string RpcServer::dispatch(const std::string& method, const std::string& payload) {
+    auto it = handlers.find(method);
+    if (it == handlers.end()) {
+        return "method not found";
     }
+    return it->second(payload);
+}
 
-    std::string handleRequest(
-        const std::string& service,
-        const std::string& request)
-    {
-        if (!services.count(service)) {
-            return "service not found";
-        }
-
-        return services[service](request);
-    }
-
-private:
-
-    std::unordered_map<std::string, Handler> services;
-
-};
+void RpcServer::start() {
+    server.setMessageCallback([this](const std::string& method, const std::string& payload) {
+        return dispatch(method, payload);
+    });
+    server.start();
+}

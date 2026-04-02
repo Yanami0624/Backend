@@ -7,29 +7,26 @@
 class Buffer {
 public:
 
-    void append(const void* data, size_t len) {
-        const char* d = static_cast<const char*>(data);
-        buf.insert(buf.end(), d, d + len);
-    }
+    Buffer();
 
-    void append(const std::string& s) {
-        append(s.data(), s.size());
-    }
+    size_t readableBytes() const;
 
-    const char* data() const {
-        return buf.data();
-    }
+    const char* peek() const;
 
-    size_t size() const {
-        return buf.size();
-    }
+    void retrieve(size_t len);
 
-    void clear() {
-        buf.clear();
-    }
+    void append(
+        const char* data,
+        size_t len
+    );
+
+    void append(
+        const std::string& s
+    );
 
 private:
 
-    std::vector<char> buf;
+    std::vector<char> buffer;
 
+    size_t readIndex;
 };

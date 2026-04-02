@@ -6,25 +6,34 @@
 
 class TcpServer {
 public:
+    using MessageCallback =
+        TcpConnection::MessageCallback;
 
+    void setMessageCallback(
+        MessageCallback cb
+    );
+
+    
     TcpServer(
         int port,
         int thread_num
     );
-
+    
     ~TcpServer();
-
+    
     void start();
-
-private:
-
+    
+    private:
+    
     void acceptLoop();
-
-private:
-
+    
+    private:
+    
     int port;
-
+    
     int listen_fd;
-
+    
+    MessageCallback messageCallback;
+    
     ThreadPool threadPool;
 };

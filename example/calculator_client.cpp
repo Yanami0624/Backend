@@ -1,49 +1,29 @@
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../rpc/rpc_client.h"
+#include "../rpc/rpc_client_pool.h"
 #include <iostream>
+#include <format>
+using namespace std;
 
 int main() {
-    int sock = socket(
-        AF_INET,
-        SOCK_STREAM,
-        0
-    );
 
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(9000);
-
-    inet_pton(
-        AF_INET,
+    RpcClientPool pool(
         "127.0.0.1",
-        &addr.sin_addr
+        9000,
+        4
     );
 
-    connect(
-        sock,
-        (sockaddr*)&addr,
-        sizeof(addr)
-    );
+{
+    for(int i = 0; i < 10; ++i) {
+    auto client = pool.acquire();
 
-    std::string msg = "hello RPC";
-
-    send(
-        sock,
-        msg.data(),
-        msg.size(),
-        0
-    );
-
-    char buf[1024];
-
-    int n = recv(
-        sock,
-        buf,
-        sizeof(buf),
-        0
-    );
-
-    std::cout
-        << std::string(buf, n)
-        << std::endl;
+    auto resp =
+        client->call(
+            "add",
+            "114000,514",
+            std::chrono::milliseconds(3000)
+        );
+        cout << resp << endl;
+    }
+    
+}
 }
