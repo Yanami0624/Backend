@@ -1,7 +1,8 @@
 
 // tcp_server.cpp
 #include "tcp_server.h"
-
+#include <format>
+using namespace std;
 TcpServer::TcpServer(int _port, int _nthrds): 
     port(_port), 
     threadpool(ThreadPool(_nthrds)) {}
@@ -38,19 +39,50 @@ void TcpServer::acceptLoop() {
     }
 }
 
-void TcpServer::handleClient(int connfd) {
-    char buffer[1024] = {0};
+// ssize_t readFull(int fd, void* buf, size_t len) {
+//     size_t total = 0;
+//     char* p = (char*)buf;
+//     while (total < len) {
+//         ssize_t n = read(fd, p + total, len - total);
+//         if (n <= 0) {
+//             return n;
+//         }
+//         total += n;
+//     }
+//     return total;
+// }
 
-    while(true) {
-        ssize_t n = read(connfd, buffer, sizeof(buffer));
-        if(n <= 0) {
-            std::cout << "Client disconnected\n";
-            break;
-        }
-        std::cout << "Recv from client: " << buffer << std::endl;
-        write(connfd, buffer, n);
-        memset(buffer, 0, n);
+void TcpServer::handleClient(int connfd) {
+    char header_buf[HEADER_LEN] = {0};
+    ssize_t n = read(connfd, header_buf, HEADER_LEN);
+    if(n != HEADER_LEN) {
+        perror("header length error.");
+    }
+
+    MessageHeader header;
+    decodeHeader(header, header_buf);
+    // header.print();
+
+    uint32_t body_len = METHOD_LEN + header.len;
+    char *buffer = new char[body_len];
+    n = read(connfd, buffer, body_len);
+    Message msg = decodeBody(buffer);
+    delete []buffer;
+
+    auto f = funcs.find(msg.method);
+    if(f == funcs.end()) {
+        string reply = format("method \"{}\" not found", msg.method);
+        write(connfd, reply.c_str(), reply.length());
+    } else {
+        string reply_payload = funcs[msg.method](msg.payload);
+        auto reply = encodeMsg("", reply_payload, 0, msg.header.request_id);
+        write(connfd, reply.c_str(), reply.length());
     }
 
     close(connfd);
 }
+
+void TcpServer::registerFunc(string &method_name, func f) {
+    funcs[method_name] = move(f);
+}
+

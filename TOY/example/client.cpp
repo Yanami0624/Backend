@@ -1,27 +1,21 @@
 
 // client.cpp
 #include "../tcp/net.h"
+#include "../common/protocol.h"
+#include "protocol.h"
+#include "../tcp/tcp_client.h"
+
 #include <cstring>
+#include <iostream>
+#include <sys/socket.h>
+#include <netinet/in.h>
 using namespace std;
+using namespace RpcParamUtils;
+
 int main() {
-    
-    for(int i = 0; i < 10; ++i)
-    {
-        int fd = socket(AF_INET, SOCK_STREAM, 0);
-    
-        sockaddr_in addr{};
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(9000);
-        inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
-        connect(fd, (sockaddr*)&addr, sizeof(addr));
-    auto msg = "fuck you";
-    send(fd, msg, strlen(msg), 0);
-
-    char buffer[1024];
-    int n = recv(fd, buffer, sizeof(buffer), 0);
-
-    std::cout << std::string(buffer, n) << std::endl;
-
-    close(fd);
-    }
+    TcpClient client("127.0.0.1", 9000);
+    auto method = string("echo");
+    auto payload = string("1,2,3");
+    auto res = client.call(method, payload, chrono::milliseconds(3000));
+    cout << res << endl;
 }

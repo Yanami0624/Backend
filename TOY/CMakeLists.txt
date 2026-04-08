@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_definitions(-w)
 
 project(toy)
 
@@ -23,4 +24,6 @@ add_executable(
 add_executable(
     client
     example/client.cpp
+
+    tcp/tcp_client.cpp
 )
