@@ -16,7 +16,7 @@ string add(string s) {
 int main() {
     TcpServer server(
         9000,
-        4
+        10
     );
 
     string method;

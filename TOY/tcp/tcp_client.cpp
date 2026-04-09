@@ -1,3 +1,6 @@
+
+
+// tcp_client.cpp
 #include "tcp_client.h"
 
 TcpClient::TcpClient(string _ip, int _port): server_ip(_ip), port(_port) {
@@ -39,22 +42,23 @@ void TcpClient::recvLoop() {
         uint32_t body_len = METHOD_LEN + header.len;
         char *buffer = new char[body_len];
         n = read(sockfd, buffer, body_len);
-        Message msg = decodeBody(buffer);
+        
+        Message msg = decodeBody(buffer, header.len);
         delete []buffer;
 
-        handleResponse(msg.header.request_id, move(msg.payload));
+        handleResponse(header.request_id, move(msg.payload));
     }
 }
 
 void TcpClient::handleResponse(int id, string s) {
-    cout << "client: response: " << s << endl;
     lock_guard<mutex> lg(pending_mutex);
     auto it = pending.find(id);
     if(it != pending.end()) {
         it->second.set_value(move(s));
         pending.erase(it);
     } else {
-        perror("client: response_id not found.");
+        auto err = format("client: response_id {} not found", id);
+        perror(err.c_str());
     }
 }
 
@@ -63,7 +67,7 @@ string TcpClient::call(
     string& payload,
     chrono::milliseconds timeout
 ) {
-    int id = request_id++;
+    int id = request_id.fetch_add(1);
     auto msg = encodeMsg(method.c_str(), payload, 0, id);
     auto p = promise<string>();
     auto f = p.get_future();
@@ -72,7 +76,6 @@ string TcpClient::call(
         pending.emplace(id, move(p));
     }
 
-    cout << msg << endl;
     send(sockfd, msg.c_str(), msg.length(), 0);
     if(f.wait_for(timeout) != future_status::ready) {
         lock_guard<mutex> lg(pending_mutex);

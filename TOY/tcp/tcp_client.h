@@ -31,8 +31,9 @@ private:
 public:
     TcpClient(string _ip, int _port);
     ~TcpClient();
-
+    
     void connectServer();
+    void disconnect();
     void recvLoop();
     void handleResponse(int id, string s);
 

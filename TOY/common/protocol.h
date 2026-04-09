@@ -1,3 +1,5 @@
+
+// protocol.h
 #pragma once
 
 #include "net.h"
@@ -18,7 +20,7 @@ struct MessageHeader {
     uint32_t request_id;
 
     void print() {
-        auto lines = format("magic-{}\nlen{}\nid{}\n", magic, len, request_id);
+        auto lines = format("magic-{} len{} id{}\n", magic, len, request_id);
         cout << lines;
     }
 };
@@ -83,14 +85,13 @@ inline string encodeMsg(
 }
 
 // 解码消息
-inline Message decodeBody(const char *cs) {
+inline Message decodeBody(const char *cs, int len) {
     Message msg{};
 
     size_t copy_len = min(strlen(cs) - HEADER_LEN, (size_t)METHOD_LEN);
     memcpy(msg.method, cs, copy_len);
 
-    size_t payload_start = HEADER_LEN + METHOD_LEN;
-    msg.payload.append(cs + METHOD_LEN);
+    msg.payload.append(cs + METHOD_LEN, len);
 
     return msg;
 }

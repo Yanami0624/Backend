@@ -9,6 +9,7 @@ TcpServer::TcpServer(int _port, int _nthrds):
 
 void TcpServer::start() {
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    
     int opt = 1;
     setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     sockaddr_in addr{};
@@ -28,6 +29,9 @@ void TcpServer::acceptLoop() {
         sockaddr_in client_addr{};
         socklen_t len = sizeof(client_addr);
         int connfd = accept(listen_fd, (sockaddr*)&client_addr, &len);
+        
+        // int flags = fcntl(connfd, F_GETFL, 0);         // 获取当前标志
+        // fcntl(connfd, F_SETFL, flags | O_NONBLOCK);    // 添加非阻塞标志
 
         if (connfd < 0) {perror("accept"); continue;}
 
@@ -39,47 +43,47 @@ void TcpServer::acceptLoop() {
     }
 }
 
-// ssize_t readFull(int fd, void* buf, size_t len) {
-//     size_t total = 0;
-//     char* p = (char*)buf;
-//     while (total < len) {
-//         ssize_t n = read(fd, p + total, len - total);
-//         if (n <= 0) {
-//             return n;
-//         }
-//         total += n;
-//     }
-//     return total;
-// }
-
 void TcpServer::handleClient(int connfd) {
-    char header_buf[HEADER_LEN] = {0};
-    ssize_t n = read(connfd, header_buf, HEADER_LEN);
-    if(n != HEADER_LEN) {
-        perror("header length error.");
+    static int handleid = 0;
+    ++handleid;
+    // printf("handleid %d created\n", handleid); 
+    while(true) {
+        // printf("handleid %d\n", handleid); 
+        char header_buf[HEADER_LEN] = {0};
+        ssize_t n = recv(connfd, header_buf, HEADER_LEN, 0);
+        if(n == 0) break;
+        if(n < 0) {
+            this_thread::sleep_for(chrono::milliseconds(1000));
+            continue;
+        }
+        if(n != HEADER_LEN) {
+            perror("recv_len != header_len");
+        }
+
+        MessageHeader header;
+        decodeHeader(header, header_buf);
+        // header.print();
+
+        uint32_t body_len = METHOD_LEN + header.len;
+        char *buffer = new char[body_len];
+        n = read(connfd, buffer, body_len);
+        Message msg = decodeBody(buffer, header.len);
+        cout << "recv: " << msg.payload << endl;
+        delete []buffer;
+
+        auto f = funcs.find(msg.method);
+        if(f == funcs.end()) {
+            string reply_payload = format("method \"{}\" not found", msg.method);
+            auto reply = encodeMsg("", reply_payload, 0, header.request_id);
+            write(connfd, reply.c_str(), reply.length());
+        } else {
+            string reply_payload = funcs[msg.method](msg.payload);
+            auto reply = encodeMsg("", reply_payload, 0, header.request_id);
+            write(connfd, reply.c_str(), reply.length());
+        }
     }
-
-    MessageHeader header;
-    decodeHeader(header, header_buf);
-    // header.print();
-
-    uint32_t body_len = METHOD_LEN + header.len;
-    char *buffer = new char[body_len];
-    n = read(connfd, buffer, body_len);
-    Message msg = decodeBody(buffer);
-    delete []buffer;
-
-    auto f = funcs.find(msg.method);
-    if(f == funcs.end()) {
-        string reply = format("method \"{}\" not found", msg.method);
-        write(connfd, reply.c_str(), reply.length());
-    } else {
-        string reply_payload = funcs[msg.method](msg.payload);
-        auto reply = encodeMsg("", reply_payload, 0, msg.header.request_id);
-        write(connfd, reply.c_str(), reply.length());
-    }
-
     close(connfd);
+    cout << "connection closed\n";
 }
 
 void TcpServer::registerFunc(string &method_name, func f) {
